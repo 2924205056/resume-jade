@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ResuMe — 免费在线简历编辑器
 
-## Getting Started
+一个简洁、实用的在线简历制作工具。选择模板，填写内容，一键导出 PDF。
 
-First, run the development server:
+### ✨ 能做什么
+
+- **8 套模板** — 从简洁经典到创意学术，覆盖各行业风格
+- **自由组合模块** — 13 种简历模块（教育、工作、项目、技能等），拖拽排序，按需开关
+- **实时预览** — 编辑边看效果，缩放自如
+- **高清 PDF 导出** — A4 标准排版，拿来即用
+- **HTML 导出** — 独立网页版简历
+- **ATS 兼容检测** — 八维度智能评分，确保通过机器筛选
+- **内容建议** — 内置软件工程师、产品经理等角色的 bullet 模板，一键插入
+- **暗色模式** — 照顾夜间使用
+- **多简历管理** — 本地存储，可同时维护多份简历
+- **数据导入导出** — JSON 格式，随时备份迁移
+
+### 🚀 本地运行
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🛠 技术栈
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next.js 16 · React 19 · TypeScript · Tailwind CSS · html2canvas + jsPDF
 
-## Learn More
+### 📄 数据安全
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+所有数据保存在浏览器本地 localStorage，不上传任何服务器。
