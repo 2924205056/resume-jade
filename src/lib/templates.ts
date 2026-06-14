@@ -4,7 +4,7 @@ export const TEMPLATES: Template[] = [
   { id: 'simple', name: '简洁经典', desc: '黑白极简，单栏布局', tags: ['简洁', '通用'], layout: 'single' },
   { id: 'business', name: '商务蓝', desc: '深蓝侧边栏，双栏布局', tags: ['稳重', '金融'], layout: 'double-sidebar' },
   { id: 'modern', name: '极简现代', desc: '深色顶栏，利落线条', tags: ['现代', '互联网'], layout: 'double-header' },
-  { id: 'creative', name: '创意风', desc: '左对齐头像+彩色标题条', tags: ['创意', '设计'], layout: 'creative' },
+  { id: 'creative', name: '创意风', desc: '个人简历分区条布局', tags: ['创意', '设计'], layout: 'creative' },
   { id: 'academic', name: '学术范', desc: '居中标题+下划线分隔', tags: ['学术', '科研'], layout: 'academic' },
   { id: 'minimal', name: '极简白', desc: '极致留白，字体排版', tags: ['极简', '设计'], layout: 'single' },
   { id: 'tech', name: '技术风', desc: '代码风格，等宽字体', tags: ['技术', '程序员'], layout: 'single' },

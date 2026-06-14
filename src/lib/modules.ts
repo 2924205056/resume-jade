@@ -2,24 +2,20 @@ import { ModuleDef } from './types';
 
 export const MODULE_DEFS: ModuleDef[] = [
   { id: 'basicInfo', name: '基本信息', icon: '', required: true, single: true, hasAvatar: true,
-    fieldGroups: [
-      { label: '身份信息', fields: ['name','gender','birthDate'] },
-      { label: '联系方式', fields: ['phone','email','wechat','homepage'] },
-      { label: '求职背景', fields: ['city','workYears','highestDegree','politicalStatus','jobStatus'] }
-    ],
     fields: [
-      { key: 'name', label: '姓名', type: 'text', w: 'half' },
-      { key: 'gender', label: '性别', type: 'select', opts: ['','男','女'], w: 'half' },
-      { key: 'birthDate', label: '出生日期', type: 'month', w: 'half' },
-      { key: 'phone', label: '手机', type: 'text', w: 'half' },
-      { key: 'email', label: '邮箱', type: 'text', w: 'wide' },
-      { key: 'wechat', label: '微信', type: 'text', w: 'half' },
-      { key: 'city', label: '所在城市', type: 'text', w: 'half' },
-      { key: 'workYears', label: '工作年限', type: 'select', opts: ['','应届生','1年以下','1-3年','3-5年','5-10年','10年以上'], w: 'half' },
-      { key: 'highestDegree', label: '最高学历', type: 'select', opts: ['','博士','硕士','本科','专科','高中及以下'], w: 'half' },
-      { key: 'politicalStatus', label: '政治面貌', type: 'select', opts: ['','中共党员','中共预备党员','共青团员','群众','其他'], w: 'half' },
-      { key: 'jobStatus', label: '求职状态', type: 'select', opts: ['','在职-考虑机会','离职-快速到岗','应届生','在校-实习'], w: 'half' },
-      { key: 'homepage', label: '个人主页', type: 'text', w: 'wide' }
+      { key: 'name', label: '您的姓名', type: 'text', w: 'half' },
+      { key: 'gender', label: '性别', type: 'select', opts: ['不填','男','女'], w: 'half' },
+      { key: 'birthDate', label: '出生年月', type: 'month', w: 'half' },
+      { key: 'workYears', label: '工作年限', type: 'select', opts: ['不填','应届生','1年以下','1-3年','3-5年','5-10年','10年以上'], w: 'half' },
+      { key: 'phone', label: '联系电话', type: 'text', w: 'half' },
+      { key: 'email', label: '联系邮箱', type: 'text', w: 'wide' },
+      { key: 'maritalStatus', label: '婚姻状况', type: 'select', opts: ['不填','未婚','已婚'], w: 'half' },
+      { key: 'height', label: '身高', type: 'text', w: 'half' },
+      { key: 'weight', label: '体重', type: 'text', w: 'half' },
+      { key: 'ethnicity', label: '民族', type: 'text', w: 'half' },
+      { key: 'nativePlace', label: '籍贯', type: 'text', w: 'half' },
+      { key: 'politicalStatus', label: '政治面貌', type: 'select', opts: ['不填','中共党员','中共预备党员','共青团员','群众','其他'], w: 'half' },
+      { key: 'arrivalTime', label: '可到岗时间', type: 'text', w: 'half' }
     ]
   },
   { id: 'jobTarget', name: '求职意向', icon: '', single: true,
@@ -29,10 +25,14 @@ export const MODULE_DEFS: ModuleDef[] = [
       { key: 'salary', label: '期望薪资', type: 'text', w: 'half' }
     ]
   },
-  { id: 'selfEvaluation', name: '自我评价', icon: '', single: true, isTextarea: true,
-    fields: [{ key: 'content', label: '自我评价', type: 'textarea' }]
+  { id: 'examInfo', name: '报考信息', icon: '', single: true,
+    fields: [
+      { key: 'target', label: '报考方向', type: 'text', w: 'wide' },
+      { key: 'school', label: '目标院校', type: 'text', w: 'half' },
+      { key: 'major', label: '目标专业', type: 'text', w: 'half' }
+    ]
   },
-  { id: 'education', name: '教育经历', icon: '', multi: true,
+  { id: 'education', name: '教育背景', icon: '', multi: true,
     fields: [
       { key: 'school', label: '学校', type: 'text', w: 'wide' },
       { key: 'degree', label: '学历', type: 'select', opts: ['本科','硕士','博士','专科','其他'], w: 'half' },
@@ -45,24 +45,26 @@ export const MODULE_DEFS: ModuleDef[] = [
   },
   { id: 'workExperience', name: '工作经历', icon: '', multi: true, hasBullets: true,
     fields: [
-      { key: 'company', label: '公司', type: 'text', w: 'wide' },
-      { key: 'position', label: '岗位', type: 'text', w: 'half' },
-      { key: 'startDate', label: '起止时间', type: 'month', w: 'date' },
+      { key: 'company', label: '公司名称', type: 'text', w: 'wide' },
+      { key: 'position', label: '职位', type: 'text', w: 'half' },
+      { key: 'startDate', label: '工作时间', type: 'month', w: 'date' },
       { key: 'endDate', label: '', type: 'month-end', w: 'date' },
-      { key: 'isCurrent', label: '至今', type: 'checkbox' }
+      { key: 'isCurrent', label: '至今', type: 'checkbox' },
+      { key: 'description', label: '工作描述', type: 'textarea', w: 'full' }
     ]
   },
-  { id: 'projects', name: '项目经历', icon: '', multi: true, hasBullets: true,
+  { id: 'projects', name: '项目经验', icon: '', multi: true, hasBullets: true,
     fields: [
       { key: 'name', label: '项目名称', type: 'text', w: 'wide' },
       { key: 'role', label: '担任角色', type: 'text', w: 'half' },
       { key: 'startDate', label: '起止时间', type: 'month', w: 'date' },
       { key: 'endDate', label: '', type: 'month-end', w: 'date' },
-      { key: 'link', label: '项目链接', type: 'text', w: 'half' }
+      { key: 'link', label: '项目链接', type: 'text', w: 'half' },
+      { key: 'description', label: '项目描述', type: 'textarea', w: 'full' }
     ]
   },
   { id: 'skills', name: '技能特长', icon: '', single: true, isSkills: true, fields: [] },
-  { id: 'certificates', name: '资格证书', icon: '', multi: true,
+  { id: 'certificates', name: '荣誉证书', icon: '', multi: true,
     fields: [
       { key: 'name', label: '证书名称', type: 'text', w: 'wide' },
       { key: 'issuer', label: '颁发机构', type: 'text', w: 'half' },
@@ -91,12 +93,13 @@ export const MODULE_DEFS: ModuleDef[] = [
       { key: 'description', label: '描述/获奖情况', type: 'textarea', w: 'full' }
     ]
   },
-  { id: 'internship', name: '实习经历', icon: '', multi: true, hasBullets: true,
+  { id: 'internship', name: '实习经验', icon: '', multi: true, hasBullets: true,
     fields: [
-      { key: 'company', label: '公司', type: 'text', w: 'wide' },
-      { key: 'position', label: '岗位', type: 'text', w: 'half' },
-      { key: 'startDate', label: '起止时间', type: 'month', w: 'date' },
+      { key: 'company', label: '公司名称', type: 'text', w: 'wide' },
+      { key: 'position', label: '职位', type: 'text', w: 'half' },
+      { key: 'startDate', label: '实习时间', type: 'month', w: 'date' },
       { key: 'endDate', label: '', type: 'month-end', w: 'date' },
+      { key: 'isCurrent', label: '至今', type: 'checkbox' },
       { key: 'description', label: '实习描述', type: 'textarea', w: 'full' }
     ]
   },
@@ -105,7 +108,20 @@ export const MODULE_DEFS: ModuleDef[] = [
       { key: 'name', label: '组织/社团', type: 'text', w: 'wide' },
       { key: 'role', label: '担任角色', type: 'text', w: 'half' },
       { key: 'startDate', label: '起止时间', type: 'month', w: 'date' },
-      { key: 'endDate', label: '', type: 'month-end', w: 'date' }
+      { key: 'endDate', label: '', type: 'month-end', w: 'date' },
+      { key: 'description', label: '经历描述', type: 'textarea', w: 'full' }
+    ]
+  },
+  { id: 'selfEvaluation', name: '自我评价', icon: '', single: true, isTextarea: true,
+    fields: [{ key: 'content', label: '自我评价', type: 'textarea' }]
+  },
+  { id: 'interests', name: '兴趣爱好', icon: '', single: true, isTextarea: true,
+    fields: [{ key: 'content', label: '兴趣爱好', type: 'textarea' }]
+  },
+  { id: 'custom', name: '自定义...', icon: '', single: true,
+    fields: [
+      { key: 'title', label: '信息名称', type: 'text', w: 'half' },
+      { key: 'content', label: '信息内容', type: 'textarea', w: 'full' }
     ]
   },
 ];

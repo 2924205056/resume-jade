@@ -5,10 +5,52 @@ function esc(s: string): string {
   if (!s) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+function escAttr(s: string): string {
+  return esc(s).replace(/'/g, '&#39;');
+}
+function safeUrl(url: string): string {
+  const v = String(url || '').trim();
+  if (/^(https?:|mailto:|tel:)/i.test(v)) return v;
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(v)) return v;
+  return '';
+}
+function richTextHtml(value: string): string {
+  if (!value) return '';
+  const raw = String(value);
+  if (!/<[a-z][\s\S]*>/i.test(raw)) return esc(raw).replace(/\r?\n/g, '<br>');
+
+  const allowed = new Set(['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'div', 'span', 'ul', 'ol', 'li', 'a', 'font', 'img']);
+  const allowedClasses = new Set(['rich-manual-list', 'rich-manual-ordered', 'rich-manual-bullet', 'rich-manual-marker', 'rich-manual-body']);
+  return raw
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|iframe|object|embed|svg|math)[\s\S]*?<\/\1>/gi, '')
+    .replace(/<(\/?)([a-z0-9]+)([^>]*)>/gi, (match, slash, tagName, attrs) => {
+      const tag = String(tagName).toLowerCase();
+      if (!allowed.has(tag)) return '';
+      if (slash) return tag === 'br' || tag === 'img' ? '' : `</${tag}>`;
+      if (tag === 'br') return '<br>';
+      if (tag === 'a') {
+        const href = safeUrl((attrs.match(/\s+href=(["'])(.*?)\1/i)?.[2] || attrs.match(/\s+href=([^\s>]+)/i)?.[1] || '').trim());
+        return href ? `<a href="${escAttr(href)}" target="_blank" rel="noopener noreferrer">` : '<a>';
+      }
+      if (tag === 'img') {
+        const src = safeUrl((attrs.match(/\s+src=(["'])(.*?)\1/i)?.[2] || attrs.match(/\s+src=([^\s>]+)/i)?.[1] || '').trim());
+        return src ? `<img src="${escAttr(src)}" alt="">` : '';
+      }
+      if (tag === 'font') {
+        const size = (attrs.match(/\s+size=(["']?)([1-7])\1/i)?.[2] || '').trim();
+        return size ? `<font size="${size}">` : '<font>';
+      }
+      const classValue = (attrs.match(/\s+class=(["'])(.*?)\1/i)?.[2] || '').split(/\s+/).filter((c: string) => allowedClasses.has(c)).join(' ');
+      return classValue ? `<${tag} class="${escAttr(classValue)}">` : `<${tag}>`;
+    });
+}
 function fmtDate(ym: string): string {
   if (!ym) return '';
-  const [y, m] = ym.split('-');
-  return y + '.' + m;
+  const value = String(ym).trim();
+  const match = value.match(/^(\d{4})[-/.年\s]*(\d{1,2})/);
+  if (!match) return value;
+  return `${match[1]}.${match[2].padStart(2, '0')}`;
 }
 function fmtRange(s: string, e: string, c?: boolean): string {
   const a = fmtDate(s);
@@ -17,22 +59,31 @@ function fmtRange(s: string, e: string, c?: boolean): string {
   return b ? a + ' - ' + b : a;
 }
 
-function sectionTitle(t: string): string {
-  return `<div class="section-title">${t}</div>`;
+function sectionTitle(t: string, modId?: string): string {
+  const attr = modId ? ` data-module-id="${escAttr(modId)}"` : '';
+  return `<div class="section-title"${attr}>${esc(t)}</div>`;
+}
+
+function moduleSection(data: ResumeData, modId: string, def: ModuleDef | undefined, content: string, className = 'resume-section'): string {
+  return `<div class="${className}" data-module-id="${escAttr(modId)}">${sectionTitle(moduleTitle(data, modId, def?.name || ''), modId)}${content}</div>`;
+}
+
+function moduleTitle(data: ResumeData, id: string, fallback = ''): string {
+  return data.moduleTitles?.[id]?.trim() || fallback;
 }
 
 export function renderResumeHTML(data: ResumeData): string {
   const tid = data.templateId || 'simple';
-  const acc = data.themeColor || '#10b981';
+  const acc = data.themeColor || '#111827';
   const accLight = acc + '20';
   const font = data.fontFamily || 'Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif';
   const order = data.moduleOrder;
   const vis = data.moduleVisibility;
   const mods = data.modules;
-  const bi = mods.basicInfo || { name: '', gender: '', birthDate: '', phone: '', email: '', wechat: '', city: '', workYears: '', highestDegree: '', politicalStatus: '', jobStatus: '', homepage: '', avatar: '' };
+  const bi = mods.basicInfo || { name: '', gender: '', birthDate: '', phone: '', email: '', workYears: '', politicalStatus: '', avatar: '' };
   
-  const contacts = [bi.phone, bi.email, bi.wechat, bi.city, bi.homepage].filter(Boolean);
-  const infoParts = [bi.gender, bi.workYears, bi.highestDegree, bi.politicalStatus, bi.jobStatus].filter(Boolean);
+  const contacts = [bi.phone, bi.email].filter(Boolean);
+  const infoParts = [bi.gender && bi.gender !== '不填' ? bi.gender : '', bi.birthDate ? fmtDate(bi.birthDate) : '', bi.workYears && bi.workYears !== '不填' ? bi.workYears : '', bi.maritalStatus && bi.maritalStatus !== '不填' ? bi.maritalStatus : '', bi.ethnicity, bi.nativePlace, bi.politicalStatus && bi.politicalStatus !== '不填' ? bi.politicalStatus : '', bi.arrivalTime ? `可到岗：${bi.arrivalTime}` : ''].filter(Boolean);
   const infoLine = infoParts.join(' | ');
   const jtObj = mods.jobTarget || { position: '', city: '', salary: '' };
   const jtText = [jtObj.position, jtObj.city, jtObj.salary].filter(Boolean).join(' · ');
@@ -54,20 +105,33 @@ function visMod(id: string, order: string[], vis: Record<string, boolean>): bool
 function renderContent(modId: string, mods: any, def: ModuleDef | undefined): string {
   const data = mods[modId];
   if (!data) return '';
-  if (modId === 'selfEvaluation') { if (!data.content?.trim()) return ''; return `<div class="single-text">${esc(data.content)}</div>`; }
+  if (modId === 'selfEvaluation' || modId === 'interests') { if (!data.content?.trim()) return ''; return `<div class="single-text rich-text">${richTextHtml(data.content)}</div>`; }
+  if (modId === 'examInfo') {
+    const parts = [data.target, data.school, data.major].filter(Boolean);
+    if (!parts.length) return '';
+    return `<div class="single-text">${esc(parts.join(' · '))}</div>`;
+  }
+  if (modId === 'custom') {
+    if (!data.title?.trim() && !data.content?.trim()) return '';
+    return `<div class="single-text rich-text">${data.title ? `<strong>${esc(data.title)}</strong>${data.content ? '：' : ''}` : ''}${richTextHtml(data.content || '')}</div>`;
+  }
   if (modId === 'skills') { if (!data.items?.length) return ''; return `<div class="skills-tags">${data.items.map((s: string) => `<span class="skill-tag-resume">${esc(s)}</span>`).join('')}</div>`; }
   if (modId === 'languages') { if (!Array.isArray(data) || !data.length) return ''; return data.map((l: any) => `<div class="cert-item"><span><strong>${esc(l.name)}</strong> — ${esc(l.level)}${l.score ? ' (' + esc(l.score) + ')' : ''}</span></div>`).join(''); }
   if (modId === 'certificates') { if (!Array.isArray(data) || !data.length) return ''; return data.map((c: any) => `<div class="cert-item"><span><strong>${esc(c.name)}</strong>${c.issuer ? ' — ' + esc(c.issuer) : ''}</span><span class="c-date">${fmtDate(c.date)}</span></div>`).join(''); }
   if (modId === 'awards') { if (!Array.isArray(data) || !data.length) return ''; return data.map((a: any) => `<div class="cert-item"><span><strong>${esc(a.name)}</strong>${a.level ? ' — ' + esc(a.level) : ''}</span><span class="c-date">${fmtDate(a.date)}</span></div>`).join(''); }
-  if (modId === 'education') { if (!Array.isArray(data) || !data.length) return ''; return data.map((e: any) => `<div class="entry"><div class="entry-header"><span class="entry-title">${esc(e.school)}</span><span class="entry-date">${fmtRange(e.startDate, e.endDate)}</span></div><div class="entry-subtitle">${esc(e.degree)} · ${esc(e.major)}${e.gpa ? ' · GPA ' + esc(e.gpa) : ''}</div>${e.description ? `<div class="entry-desc">${esc(e.description)}</div>` : ''}</div>`).join(''); }
-  if (['workExperience', 'internship', 'projects', 'campusActivity', 'organization', 'socialPractice'].includes(modId)) {
+  if (modId === 'education') { if (!Array.isArray(data) || !data.length) return ''; return data.map((e: any) => `<div class="entry"><div class="entry-header"><span class="entry-title">${esc(e.school)}</span><span class="entry-date">${fmtRange(e.startDate, e.endDate)}</span></div><div class="entry-subtitle">${esc(e.degree)} · ${esc(e.major)}${e.gpa ? ' · GPA ' + esc(e.gpa) : ''}</div>${e.description ? `<div class="entry-desc rich-text">${richTextHtml(e.description)}</div>` : ''}</div>`).join(''); }
+  if (['workExperience', 'internship', 'projects', 'campusActivity', 'organization', 'socialPractice', 'competitions', 'overseas', 'research', 'portfolio'].includes(modId)) {
     if (!Array.isArray(data) || !data.length) return '';
     return data.map((e: any) => {
       const org = e.company || e.name || '';
       const title = e.position || e.role || '';
-      let desc = e.description || '';
-      if (e.bullets?.length) desc = e.bullets.map((b: any) => '• ' + b.html.replace(/<[^>]+>/g, '')).join('\n');
-      return `<div class="entry"><div class="entry-header"><span class="entry-title">${esc(org)}</span><span class="entry-date">${fmtRange(e.startDate, e.endDate, e.isCurrent)}</span></div><div class="entry-subtitle">${esc(title)}</div>${desc ? `<div class="entry-desc">${esc(desc)}</div>` : ''}${e.link ? `<div class="entry-link">${esc(e.link)}</div>` : ''}</div>`;
+      const meta = [e.level, e.date ? fmtDate(e.date) : ''].filter(Boolean).join(' · ');
+      const desc = e.description?.trim() ? `<div class="entry-desc rich-text">${richTextHtml(e.description)}</div>` : '';
+      const bullets = e.bullets?.length
+        ? `<ul class="entry-desc rich-text entry-bullets">${e.bullets.map((b: any) => b.html?.trim() ? `<li>${richTextHtml(b.html)}</li>` : '').join('')}</ul>`
+        : '';
+      const dateRange = e.startDate || e.endDate ? fmtRange(e.startDate, e.endDate, e.isCurrent) : '';
+      return `<div class="entry"><div class="entry-header"><span class="entry-title">${esc(org)}</span><span class="entry-date">${dateRange}</span></div>${title || meta ? `<div class="entry-subtitle">${esc([title, meta].filter(Boolean).join(' · '))}</div>` : ''}${desc || bullets ? `${desc}${bullets}` : ''}${e.link ? `<div class="entry-link">${esc(e.link)}</div>` : ''}</div>`;
     }).join('');
   }
   return '';
@@ -76,19 +140,19 @@ function renderContent(modId: string, mods: any, def: ModuleDef | undefined): st
 function renderSimple(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, accLight: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};--accent-light:${accLight};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner">`;
-  h += `<div class="${bi.avatar ? 'resume-header-avatar' : 'resume-header'}">`;
-  if (bi.avatar) h += `<img class="avatar-img" src="${bi.avatar}" alt="avatar"><div class="header-text">`;
+  h += `<div class="${bi.avatar ? 'resume-header-avatar' : 'resume-header'}" data-module-id="basicInfo">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="avatar-img" src="${bi.avatar}" alt="avatar"><div class="header-text">`;
   h += `<div class="resume-name">${esc(bi.name) || '姓名'}</div>`;
   if (infoLine) h += `<div class="info-line">${esc(infoLine)}</div>`;
   if (mods.jobTarget?.position) h += `<div class="job-target">求职意向：${esc([mods.jobTarget.position, mods.jobTarget.city, mods.jobTarget.salary].filter(Boolean).join(' · '))}</div>`;
   h += `<div class="resume-contact">${contacts.map(c => `<span>${esc(c)}</span>`).join('<span class="sep">|</span>')}</div>`;
-  if (bi.avatar) h += `</div>`;
+  if (bi.avatar && bi.showAvatar !== false) h += `</div>`;
   h += `</div>`;
   for (const modId of order) {
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section">${sectionTitle(def?.name || '')}${content}</div>`;
+    if (content) h += moduleSection(data, modId, def, content);
   }
   h += `</div></div>`;
   return h;
@@ -97,25 +161,28 @@ function renderSimple(data: ResumeData, bi: any, contacts: string[], infoLine: s
 function renderBusiness(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner biz-layout">`;
-  h += `<div class="resume-sidebar"><div class="sidebar-name">${esc(bi.name) || '姓名'}</div>`;
+  h += `<div class="resume-sidebar"><div class="sidebar-profile" data-module-id="basicInfo">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="sidebar-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `<div class="sidebar-name">${esc(bi.name) || '姓名'}</div>`;
   if (infoLine) h += `<div class="sidebar-info">${esc(infoLine)}</div>`;
   if (mods.jobTarget?.position) h += `<div class="sidebar-job">${esc([mods.jobTarget.position, mods.jobTarget.city, mods.jobTarget.salary].filter(Boolean).join(' · '))}</div>`;
-  const sidebarIds = new Set(['selfEvaluation', 'skills', 'certificates', 'languages', 'awards']);
+  h += `</div>`;
+  const sidebarIds = new Set(['selfEvaluation', 'skills', 'certificates', 'languages', 'awards', 'interests']);
   for (const modId of order) {
     if (!sidebarIds.has(modId) || !visMod(modId, order, vis)) continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `${sectionTitle(def?.name || '')}${content}`;
+    if (content) h += `<div class="resume-section sidebar-section" data-module-id="${escAttr(modId)}">${sectionTitle(moduleTitle(data, modId, def?.name || ''), modId)}${content}</div>`;
   }
   h += sectionTitle('联系方式');
   h += contacts.map(c => `<div class="contact-item">${esc(c)}</div>`).join('');
   h += `</div><div class="resume-main">`;
-  const mainIds = new Set(['education', 'workExperience', 'internship', 'projects', 'campusActivity', 'organization', 'socialPractice', 'competitions', 'overseas', 'research', 'portfolio', 'custom']);
+  const mainIds = new Set(['examInfo', 'education', 'workExperience', 'internship', 'projects', 'campusActivity', 'organization', 'socialPractice', 'competitions', 'overseas', 'research', 'portfolio', 'custom']);
   for (const modId of order) {
     if (!mainIds.has(modId) || !visMod(modId, order, vis)) continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section">${sectionTitle(def?.name || '')}${content}</div>`;
+    if (content) h += moduleSection(data, modId, def, content);
   }
   h += `</div></div></div>`;
   return h;
@@ -124,8 +191,8 @@ function renderBusiness(data: ResumeData, bi: any, contacts: string[], infoLine:
 function renderModern(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, accLight: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};--accent-light:${accLight};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner">`;
-  h += `<div class="resume-header mod-header">`;
-  if (bi.avatar) h += `<img class="avatar-img mod-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `<div class="resume-header mod-header" data-module-id="basicInfo">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="avatar-img mod-avatar" src="${bi.avatar}" alt="avatar">`;
   h += `<div><div class="resume-name mod-name">${esc(bi.name) || '姓名'}</div>`;
   if (infoLine) h += `<div class="mod-info">${esc(infoLine)}</div>`;
   if (mods.jobTarget?.position) h += `<div class="mod-job">${esc([mods.jobTarget.position, mods.jobTarget.city, mods.jobTarget.salary].filter(Boolean).join(' · '))}</div>`;
@@ -135,7 +202,7 @@ function renderModern(data: ResumeData, bi: any, contacts: string[], infoLine: s
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section">${sectionTitle(def?.name || '')}${content}</div>`;
+    if (content) h += moduleSection(data, modId, def, content);
   }
   h += `</div></div>`;
   return h;
@@ -143,18 +210,30 @@ function renderModern(data: ResumeData, bi: any, contacts: string[], infoLine: s
 
 function renderCreative(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, accLight: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};--accent-light:${accLight};font-family:${font}`;
-  let h = `<div class="resume" style="${style}"><div class="resume-inner">`;
-  h += `<div class="creative-header">`;
-  if (bi.avatar) h += `<img class="creative-avatar" src="${bi.avatar}" alt="avatar">`;
-  h += `<div class="creative-header-info"><div class="resume-name">${esc(bi.name) || '姓名'}</div>`;
-  if (infoLine) h += `<div class="creative-info">${esc(infoLine)}</div>`;
-  if (mods.jobTarget?.position) h += `<div class="creative-job">求职意向：${esc([mods.jobTarget.position, mods.jobTarget.city, mods.jobTarget.salary].filter(Boolean).join(' · '))}</div>`;
-  h += `<div class="resume-contact">${contacts.map(c => `<span>${esc(c)}</span>`).join('<span class="sep">|</span>')}</div></div></div>`;
+  let h = `<div class="resume creative-resume" style="${style}"><div class="resume-inner creative-inner">`;
+  h += `<div class="creative-topline"><div><span class="creative-cn">个人简历</span><span class="creative-en">Personal resume</span></div><div class="creative-icons"><span></span><span></span></div></div>`;
+  h += `<div class="creative-gold-line"></div>`;
+  h += `<div class="creative-basic" data-module-id="basicInfo"><div class="creative-ribbon">基本信息</div><div class="creative-basic-grid">`;
+  const basicRows = [
+    ['姓名', bi.name], ['性别', bi.gender && bi.gender !== '不填' ? bi.gender : ''],
+    ['出生年月', bi.birthDate ? fmtDate(bi.birthDate) : ''], ['工作年限', bi.workYears && bi.workYears !== '不填' ? bi.workYears : ''],
+    ['电话', bi.phone], ['邮箱', bi.email],
+    ['婚姻状况', bi.maritalStatus && bi.maritalStatus !== '不填' ? bi.maritalStatus : ''],
+    ['身高/体重', [bi.height ? `${bi.height}cm` : '', bi.weight ? `${bi.weight}kg` : ''].filter(Boolean).join(' / ')],
+    ['民族', bi.ethnicity], ['籍贯', bi.nativePlace],
+    ['政治面貌', bi.politicalStatus && bi.politicalStatus !== '不填' ? bi.politicalStatus : ''],
+    ['可到岗时间', bi.arrivalTime],
+    ...((bi.customInfos || []).filter((item: any) => item.label || item.value).map((item: any) => [item.label, item.value])),
+  ].filter(([, value]) => value);
+  h += basicRows.map(([label, value]) => `<div><span>${esc(label)}：</span>${esc(value)}</div>`).join('');
+  h += `</div>`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="creative-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `</div>`;
   for (const modId of order) {
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section"><div class="section-title creative-ttl">${def?.name || ''}</div>${content}</div>`;
+    if (content) h += `<div class="resume-section creative-section" data-module-id="${escAttr(modId)}"><div class="section-title creative-ttl" data-module-id="${escAttr(modId)}">${esc(moduleTitle(data, modId, def?.name || ''))}</div>${content}</div>`;
   }
   h += `</div></div>`;
   return h;
@@ -163,15 +242,17 @@ function renderCreative(data: ResumeData, bi: any, contacts: string[], infoLine:
 function renderAcademic(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner">`;
-  h += `<div class="academic-header"><div class="resume-name">${esc(bi.name) || '姓名'}</div>`;
+  h += `<div class="academic-header" data-module-id="basicInfo">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="academic-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `<div class="academic-header-text"><div class="resume-name">${esc(bi.name) || '姓名'}</div>`;
   if (infoLine) h += `<div class="academic-info">${esc(infoLine)}</div>`;
   if (mods.jobTarget?.position) h += `<div class="academic-job">${esc([mods.jobTarget.position, mods.jobTarget.city, mods.jobTarget.salary].filter(Boolean).join(' · '))}</div>`;
-  h += `<div class="resume-contact">${contacts.map(c => `<span>${esc(c)}</span>`).join('<span class="sep">|</span>')}</div></div>`;
+  h += `<div class="resume-contact">${contacts.map(c => `<span>${esc(c)}</span>`).join('<span class="sep">|</span>')}</div></div></div>`;
   for (const modId of order) {
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section">${sectionTitle(def?.name || '')}${content}</div>`;
+    if (content) h += moduleSection(data, modId, def, content);
   }
   h += `</div></div>`;
   return h;
@@ -180,13 +261,15 @@ function renderAcademic(data: ResumeData, bi: any, contacts: string[], infoLine:
 function renderMinimal(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner" style="padding:25mm 22mm">`;
-  h += `<div class="minimal-header"><div class="resume-name" style="font-size:20pt;font-weight:300;letter-spacing:4px;margin-bottom:8px">${esc(bi.name) || '姓名'}</div>`;
-  h += `<div class="resume-contact" style="gap:8px 24px">${contacts.map(c => `<span>${esc(c)}</span>`).join('')}</div></div>`;
+  h += `<div class="minimal-header" data-module-id="basicInfo">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="minimal-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `<div class="minimal-header-text"><div class="resume-name" style="font-size:20pt;font-weight:300;letter-spacing:4px;margin-bottom:8px">${esc(bi.name) || '姓名'}</div>`;
+  h += `<div class="resume-contact" style="gap:8px 24px">${contacts.map(c => `<span>${esc(c)}</span>`).join('')}</div></div></div>`;
   for (const modId of order) {
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section"><div class="section-title" style="border-bottom:0;font-size:10pt;text-transform:uppercase;letter-spacing:3px;color:#94a3b8;margin-bottom:14px">${def?.name || ''}</div>${content}</div>`;
+    if (content) h += `<div class="resume-section" data-module-id="${escAttr(modId)}"><div class="section-title" data-module-id="${escAttr(modId)}" style="border-bottom:0;font-size:10pt;text-transform:uppercase;letter-spacing:3px;color:#94a3b8;margin-bottom:14px">${esc(moduleTitle(data, modId, def?.name || ''))}</div>${content}</div>`;
   }
   h += `</div></div>`;
   return h;
@@ -195,14 +278,15 @@ function renderMinimal(data: ResumeData, bi: any, contacts: string[], infoLine: 
 function renderTech(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};font-family:'JetBrains Mono','Fira Code',monospace`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner">`;
-  h += `<div style="border-bottom:1px solid #cbd5e1;padding-bottom:12px;margin-bottom:16px">`;
-  h += `<div class="resume-name" style="font-size:22pt;font-weight:600;color:#0f172a">${esc(bi.name) || '姓名'}</div>`;
-  h += `<div style="font-size:10pt;color:#64748b">${contacts.map(c => esc(c)).join(' | ')}</div></div>`;
+  h += `<div class="tech-header" data-module-id="basicInfo" style="border-bottom:1px solid #cbd5e1;padding-bottom:12px;margin-bottom:16px">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="tech-avatar" src="${bi.avatar}" alt="avatar">`;
+  h += `<div class="tech-header-text"><div class="resume-name" style="font-size:22pt;font-weight:600;color:#0f172a">${esc(bi.name) || '姓名'}</div>`;
+  h += `<div style="font-size:10pt;color:#64748b">${contacts.map(c => esc(c)).join(' | ')}</div></div></div>`;
   for (const modId of order) {
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section"><div class="section-title" style="font-family:monospace;color:var(--accent);border-bottom-color:#e2e8f0">${def?.name || ''}</div>${content}</div>`;
+    if (content) h += `<div class="resume-section" data-module-id="${escAttr(modId)}"><div class="section-title" data-module-id="${escAttr(modId)}" style="font-family:monospace;color:var(--accent);border-bottom-color:#e2e8f0">${esc(moduleTitle(data, modId, def?.name || ''))}</div>${content}</div>`;
   }
   h += `</div></div>`;
   return h;
@@ -211,7 +295,8 @@ function renderTech(data: ResumeData, bi: any, contacts: string[], infoLine: str
 function renderBold(data: ResumeData, bi: any, contacts: string[], infoLine: string, acc: string, font: string, order: string[], vis: Record<string, boolean>, mods: any): string {
   const style = `--accent:${acc};font-family:${font}`;
   let h = `<div class="resume" style="${style}"><div class="resume-inner" style="padding:0">`;
-  h += `<div style="background:#0f172a;color:white;padding:22mm 18mm 14mm">`;
+  h += `<div class="bold-header" data-module-id="basicInfo" style="background:#0f172a;color:white;padding:22mm 18mm 14mm">`;
+  if (bi.avatar && bi.showAvatar !== false) h += `<img class="bold-avatar" src="${bi.avatar}" alt="avatar">`;
   h += `<div class="resume-name" style="font-size:28pt;font-weight:900;color:white">${esc(bi.name) || '姓名'}</div>`;
   if (infoLine) h += `<div style="font-size:11pt;opacity:0.8;margin-top:4px">${esc(infoLine)}</div>`;
   h += `<div style="font-size:10pt;margin-top:8px;opacity:0.7">${contacts.map(c => esc(c)).join(' · ')}</div>`;
@@ -220,7 +305,7 @@ function renderBold(data: ResumeData, bi: any, contacts: string[], infoLine: str
     if (!visMod(modId, order, vis) || modId === 'basicInfo') continue;
     const def = MODULE_DEFS.find(m => m.id === modId);
     const content = renderContent(modId, mods, def);
-    if (content) h += `<div class="resume-section"><div class="section-title">${def?.name || ''}</div>${content}</div>`;
+    if (content) h += moduleSection(data, modId, def, content);
   }
   h += `</div></div></div>`;
   return h;

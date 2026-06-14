@@ -1,9 +1,11 @@
 export interface BasicInfo {
   name: string; gender: string; birthDate: string;
-  phone: string; email: string; wechat: string;
-  city: string; workYears: string; highestDegree: string;
-  politicalStatus: string; jobStatus: string;
-  homepage: string; avatar: string;
+  phone: string; email: string;
+  workYears: string; politicalStatus: string;
+  avatar: string; birthToAge?: boolean; showAvatar?: boolean;
+  maritalStatus?: string; height?: string; weight?: string;
+  ethnicity?: string; nativePlace?: string; arrivalTime?: string;
+  customInfos?: { id: string; label: string; value: string }[];
 }
 export interface JobTarget { position: string; city: string; salary: string; }
 export interface SelfEvaluation { content: string; }
@@ -20,6 +22,7 @@ export interface ProjectEntry {
   id: string; name: string; role: string;
   startDate: string; endDate: string;
   bullets: BulletItem[]; link: string;
+  description?: string;
 }
 export interface BulletItem { id: string; html: string; }
 export interface AwardEntry { id: string; name: string; level: string; date: string; }
@@ -30,6 +33,7 @@ export interface LangEntry { id: string; name: string; level: string; score: str
 export interface ResumeModules {
   basicInfo: BasicInfo;
   jobTarget: JobTarget;
+  examInfo: any;
   selfEvaluation: SelfEvaluation;
   education: EducationEntry[];
   workExperience: WorkEntry[];
@@ -46,7 +50,8 @@ export interface ResumeModules {
   overseas: any[];
   research: any[];
   portfolio: any[];
-  custom: any[];
+  interests: SelfEvaluation;
+  custom: any;
 }
 
 export interface ResumeData {
@@ -59,6 +64,7 @@ export interface ResumeData {
   compressOnePage: boolean;
   moduleOrder: string[];
   moduleVisibility: Record<string, boolean>;
+  moduleTitles: Record<string, string>;
   modules: ResumeModules;
 }
 

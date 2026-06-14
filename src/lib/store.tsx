@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { ResumeData } from './types';
-import { createDefaultData, initVisibility } from './defaults';
+import { createDefaultData, initVisibility, normalizeResumeData } from './defaults';
 import { nanoid } from 'nanoid';
 
 interface SavedResume {
@@ -43,6 +43,7 @@ type StoreAction =
   | { type: 'TOGGLE_COMPRESS'; value: boolean }
   | { type: 'SET_ACTIVE_MODULE'; id: string }
   | { type: 'TOGGLE_MODULE_VISIBILITY'; id: string }
+  | { type: 'SET_MODULE_TITLE'; id: string; title: string }
   | { type: 'MOVE_MODULE'; from: number; to: number }
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'RESET' };
@@ -57,7 +58,8 @@ function loadResumesFromStorage(): SavedResume[] {
   if (typeof window === 'undefined') return [];
   try {
     const s = localStorage.getItem('resume_jade_list');
-    return s ? JSON.parse(s) : [];
+    const resumes: SavedResume[] = s ? JSON.parse(s) : [];
+    return resumes.map(r => ({ ...r, data: normalizeResumeData(r.data) }));
   } catch { return []; }
 }
 
@@ -78,6 +80,7 @@ function reducer(state: StoreState, action: StoreAction): StoreState {
         saveResumesToStorage([newResume]);
         return { ...state, resumes: [newResume], currentId: newResume.id, data: d };
       }
+      saveResumesToStorage(resumes);
       return { ...state, resumes, currentId: resumes[0].id, data: resumes[0].data };
     }
     case 'NEW_RESUME': {
@@ -90,7 +93,8 @@ function reducer(state: StoreState, action: StoreAction): StoreState {
     case 'SELECT_RESUME': {
       const r = state.resumes.find(x => x.id === action.id);
       if (!r) return state;
-      return { ...state, currentId: action.id, data: r.data, view: 'editor', activeModule: 'basicInfo' };
+      const data = normalizeResumeData(r.data);
+      return { ...state, currentId: action.id, data, view: 'editor', activeModule: 'basicInfo' };
     }
     case 'DELETE_RESUME': {
       const resumes = state.resumes.filter(r => r.id !== action.id);
@@ -166,6 +170,16 @@ function reducer(state: StoreState, action: StoreAction): StoreState {
     case 'TOGGLE_MODULE_VISIBILITY': {
       const vis = { ...state.data.moduleVisibility, [action.id]: !state.data.moduleVisibility[action.id] };
       const data = { ...state.data, moduleVisibility: vis };
+      const resumes = state.resumes.map(r => r.id === state.currentId ? { ...r, data, updatedAt: new Date().toISOString() } : r);
+      saveResumesToStorage(resumes);
+      return { ...state, data, resumes, saved: false };
+    }
+    case 'SET_MODULE_TITLE': {
+      const titles = { ...state.data.moduleTitles };
+      const title = action.title.trim();
+      if (title) titles[action.id] = title;
+      else delete titles[action.id];
+      const data = { ...state.data, moduleTitles: titles };
       const resumes = state.resumes.map(r => r.id === state.currentId ? { ...r, data, updatedAt: new Date().toISOString() } : r);
       saveResumesToStorage(resumes);
       return { ...state, data, resumes, saved: false };
